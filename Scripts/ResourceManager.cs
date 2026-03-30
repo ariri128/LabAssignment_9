@@ -24,16 +24,14 @@ public class ResourceManager : MonoBehaviour
 
     public void AddResource(ResourceType resourceType, float amount)
     {
-        if (!resources.ContainsKey(resourceType))
+        if (resources.ContainsKey(resourceType))
         {
-            resources[resourceType] = 0f;
+            resources[resourceType] += amount;
         }
-
-        float currentValue = resources[resourceType];
-
-        ModifyResource(ref currentValue, amount);
-
-        resources[resourceType] = currentValue;
+        else
+        {
+            resources[resourceType] = amount;
+        }
     }
 
     public bool SpendResource(ResourceType resourceType, float amount)
@@ -49,11 +47,13 @@ public class ResourceManager : MonoBehaviour
 
     public void SetResource(ResourceType resourceType, float value)
     {
-        resources[resourceType] = value;
-    }
-
-    private void ModifyResource(ref float resourceValue, float amount)
-    {
-        resourceValue += amount;
+        if (resources.ContainsKey(resourceType))
+        {
+            resources[resourceType] = value;
+        }
+        else
+        {
+            resources.Add(resourceType, value);
+        }
     }
 }

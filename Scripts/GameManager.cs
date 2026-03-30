@@ -11,7 +11,6 @@ public class GameManager : MonoBehaviour
     public TextMeshProUGUI revenuePerSecondText;
     public TextMeshProUGUI juniorDevCountText;
     public TextMeshProUGUI releasedGamesCountText;
-    public TextMeshProUGUI statusMessageText;
 
     public TextMeshProUGUI engineUpgradeStateText;
     public TextMeshProUGUI assetLibraryUpgradeStateText;
@@ -19,10 +18,15 @@ public class GameManager : MonoBehaviour
 
     public float developGameClickValue = 10f;
 
-    public List<Upgrade> upgrades = new List<Upgrade>();
+    public int juniorDeveloperCount = 0;
+    public int releasedGameCount = 0;
+    public float juniorDeveloperIncome = 2f;
+    public float releasedGameIncome = 5f;
 
-    private Generator juniorDeveloperGenerator;
-    private Generator releasedGameGenerator;
+    public float juniorDeveloperCost = 50f;
+    public float releasedGameCost = 100f;
+
+    public List<Upgrade> upgrades = new List<Upgrade>();
 
     private float globalRevenueMultiplier = 1f;
 
@@ -32,9 +36,6 @@ public class GameManager : MonoBehaviour
         {
             resourceManager = GetComponent<ResourceManager>();
         }
-
-        juniorDeveloperGenerator = new JuniorDeveloperGenerator();
-        releasedGameGenerator = new ReleasedGameGenerator();
 
         upgrades.Add(new Upgrade(
             "Better Engine",
@@ -75,8 +76,8 @@ public class GameManager : MonoBehaviour
     {
         float totalPassiveIncome = 0f;
 
-        totalPassiveIncome += juniorDeveloperGenerator.Produce();
-        totalPassiveIncome += releasedGameGenerator.Produce();
+        totalPassiveIncome += juniorDeveloperCount * juniorDeveloperIncome;
+        totalPassiveIncome += releasedGameCount * releasedGameIncome;
         totalPassiveIncome *= globalRevenueMultiplier;
 
         resourceManager.AddResource(ResourceType.Revenue, totalPassiveIncome * Time.deltaTime);
@@ -86,8 +87,8 @@ public class GameManager : MonoBehaviour
     {
         float totalPassiveIncome = 0f;
 
-        totalPassiveIncome += juniorDeveloperGenerator.Produce();
-        totalPassiveIncome += releasedGameGenerator.Produce();
+        totalPassiveIncome += juniorDeveloperCount * juniorDeveloperIncome;
+        totalPassiveIncome += releasedGameCount * releasedGameIncome;
         totalPassiveIncome *= globalRevenueMultiplier;
 
         resourceManager.SetResource(ResourceType.RevenuePerSecond, totalPassiveIncome);
@@ -106,9 +107,12 @@ public class GameManager : MonoBehaviour
             {
                 upgrades[i].state = UpgradeState.Available;
             }
-            else if (upgrades[i - 1].state == UpgradeState.Purchased)
+            else
             {
-                upgrades[i].state = UpgradeState.Available;
+                if (upgrades[i - 1].state == UpgradeState.Purchased)
+                {
+                    upgrades[i].state = UpgradeState.Available;
+                }
             }
         }
     }
@@ -118,9 +122,8 @@ public class GameManager : MonoBehaviour
         revenueText.text = "Revenue: $" + resourceManager.GetResource(ResourceType.Revenue).ToString("F1");
         reputationText.text = "Reputation: " + resourceManager.GetResource(ResourceType.Reputation).ToString("F1");
         revenuePerSecondText.text = "Revenue / Sec: $" + resourceManager.GetResource(ResourceType.RevenuePerSecond).ToString("F1");
-
-        juniorDevCountText.text = "Dev Count: " + juniorDeveloperGenerator.ownedCount;
-        releasedGamesCountText.text = "Game Count: " + releasedGameGenerator.ownedCount;
+        juniorDevCountText.text = "Junior Developers: " + juniorDeveloperCount;
+        releasedGamesCountText.text = "Released Games: " + releasedGameCount;
 
         engineUpgradeStateText.text = upgrades[0].state.ToString();
         assetLibraryUpgradeStateText.text = upgrades[1].state.ToString();
@@ -132,52 +135,30 @@ public class GameManager : MonoBehaviour
         float clickAmount = developGameClickValue * globalRevenueMultiplier;
         resourceManager.AddResource(ResourceType.Revenue, clickAmount);
         resourceManager.AddResource(ResourceType.Reputation, 1f);
-        statusMessageText.text = "Status: Developed a game project.";
         UpdateUI();
     }
 
-    public void BuyJuniorDeveloper()
+    public void HireJuniorDeveloper()
     {
-        string message;
-        bool success = TryPurchaseGenerator(juniorDeveloperGenerator, out message);
-
-        statusMessageText.text = "Status: " + message;
-
-        if (success)
+        if (resourceManager.SpendResource(ResourceType.Revenue, juniorDeveloperCost))
         {
+            juniorDeveloperCount++;
+            juniorDeveloperCost *= 1.15f;
             UpdateRevenuePerSecond();
             UpdateUI();
         }
     }
 
-    public void BuyReleasedGame()
+    public void ReleaseSmallGame()
     {
-        string message;
-        bool success = TryPurchaseGenerator(releasedGameGenerator, out message);
-
-        statusMessageText.text = "Status: " + message;
-
-        if (success)
+        if (resourceManager.SpendResource(ResourceType.Revenue, releasedGameCost))
         {
+            releasedGameCount++;
+            releasedGameCost *= 1.15f;
             resourceManager.AddResource(ResourceType.Reputation, 5f);
             UpdateRevenuePerSecond();
             UpdateUI();
         }
-    }
-
-    private bool TryPurchaseGenerator(Generator generator, out string message)
-    {
-        float cost = generator.GetCurrentCost();
-
-        if (resourceManager.SpendResource(ResourceType.Revenue, cost))
-        {
-            generator.ownedCount++;
-            message = "Purchased " + generator.generatorName;
-            return true;
-        }
-
-        message = "Not enough Revenue for " + generator.generatorName;
-        return false;
     }
 
     public void BuyBetterEngine()
@@ -203,7 +184,6 @@ public class GameManager : MonoBehaviour
             {
                 if (upgrades[i].state != UpgradeState.Available)
                 {
-                    statusMessageText.text = "Status: Upgrade is not available.";
                     return;
                 }
 
@@ -213,12 +193,7 @@ public class GameManager : MonoBehaviour
                     ApplyUpgradeEffect(upgrades[i].effect);
                     UpdateRevenuePerSecond();
                     UpdateUpgradeAvailability();
-                    statusMessageText.text = "Status: Purchased " + upgrades[i].upgradeName;
                     UpdateUI();
-                }
-                else
-                {
-                    statusMessageText.text = "Status: Not enough Revenue for " + upgrades[i].upgradeName;
                 }
 
                 return;
